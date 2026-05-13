@@ -1,0 +1,20 @@
+<Application x:Class="OmronPlcTool.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:OmronPlcTool"
+             StartupUri="Views/MainWindow.xaml">
+    <Application.Resources>
+        <local:InvertBoolConverter x:Key="InvertBoolConverter"/>
+        <local:ConnectButtonTextConverter x:Key="ConnectButtonTextConverter"/>
+        <local:ConnectColorConverter x:Key="ConnectColorConverter"/>
+        <local:StatusColorConverter x:Key="StatusColorConverter"/>
+        <local:ProtocolToVisibilityConverter x:Key="ProtocolToVisibilityConverter"/>
+        <local:ProtocolTipConverter x:Key="ProtocolTipConverter"/>
+        <local:PlcModelNameConverter x:Key="PlcModelNameConverter"/>
+        <local:ProtocolTipShortConverter x:Key="ProtocolTipShortConverter"/>
+        <local:BoolToVisConverter x:Key="BoolToVisConverter"/>
+        <local:InvertBoolToVisConverter x:Key="InvertBoolToVisConverter"/>
+        <local:FolderFontWeightConverter x:Key="FolderFontWeightConverter"/>
+        <local:FolderOpacityConverter x:Key="FolderOpacityConverter"/>
+    </Application.Resources>
+</Application>

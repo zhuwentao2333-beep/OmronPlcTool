@@ -1,0 +1,111 @@
+<Window x:Class="OmronPlcTool.Views.VariableImportWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:models="clr-namespace:OmronPlcTool.Models"
+        Title="选择要导入的变量"
+        Height="620" Width="950"
+        WindowStartupLocation="CenterOwner">
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 标题 -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
+            <TextBlock Text="变量导入选择" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+            <TextBlock VerticalAlignment="Center" Margin="10,0,0,0" Foreground="Gray">
+                <Run Text=" — 共 "/><Run Text="{Binding ImportCandidates.Count, Mode=OneWay}"/><Run Text=" 个变量"/>
+            </TextBlock>
+            <TextBlock Text="（勾选后点击「确认导入」）" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="Gray"/>
+        </StackPanel>
+
+        <!-- 筛选 + 快捷选择 -->
+        <Grid Grid.Row="1" Margin="0,0,0,6">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="筛选:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                <TextBox x:Name="SearchBox" Width="180" VerticalAlignment="Center" Margin="0,0,8,0"
+                         TextChanged="SearchBox_TextChanged"/>
+
+                <CheckBox x:Name="ShowStructOnly" Content="仅结构体/数组" VerticalAlignment="Center"
+                          Margin="8,0,8,0" Click="FilterChanged"/>
+
+                <CheckBox x:Name="HierarchyCheck" Content="层级显示" VerticalAlignment="Center"
+                          Margin="8,0,8,0" Click="HierarchyToggled"/>
+
+                <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="6,0"/>
+
+                <Button Content="全选" Click="SelectAll_Click" Width="55" Height="24" Margin="0,0,3,0"/>
+                <Button Content="反选" Click="Invert_Click" Width="55" Height="24" Margin="0,0,3,0"/>
+                <Button Content="全不选" Click="DeselectAll_Click" Width="55" Height="24"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- 层级视图操作栏 -->
+        <WrapPanel Grid.Row="2" Margin="0,0,0,6" Visibility="Collapsed" x:Name="HierarchyBar">
+            <Button Content="全部展开" Click="ExpandAll_Click" Width="70" Height="22" FontSize="11" Margin="0,0,4,0"/>
+            <Button Content="全部折叠" Click="CollapseAll_Click" Width="70" Height="22" FontSize="11"/>
+            <Button Content="选父即选子" Click="SelectParents_Click" Width="80" Height="22" FontSize="11" Margin="10,0,0,0"
+                    ToolTip="勾选结构体/数组文件夹时自动勾选所有子项"/>
+        </WrapPanel>
+
+        <!-- 候选变量 — 扁平视图 -->
+        <DataGrid Grid.Row="3" x:Name="FlatGrid"
+                  ItemsSource="{Binding ImportCandidates}"
+                  AutoGenerateColumns="False" CanUserAddRows="False"
+                  RowHeight="26" SelectionMode="Single">
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Header="" Width="36">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}"
+                                      HorizontalAlignment="Center"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="变量名" Binding="{Binding VariableName}" Width="240" IsReadOnly="True"/>
+                <DataGridTextColumn Header="数据类型" Binding="{Binding DataType}" Width="120" IsReadOnly="True"/>
+                <DataGridTextColumn Header="地址/AT" Binding="{Binding Address}" Width="*" MinWidth="150" IsReadOnly="True"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- 候选变量 — 层级视图 -->
+        <TreeView Grid.Row="3" x:Name="HierarchyTree" ItemsSource="{Binding}"
+                  Visibility="Collapsed">
+            <TreeView.Resources>
+                <HierarchicalDataTemplate DataType="{x:Type models:ImportCandidate}"
+                                          ItemsSource="{Binding Children}">
+                    <Grid Margin="1,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="36"/>
+                            <ColumnDefinition Width="240"/>
+                            <ColumnDefinition Width="120"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" Text="{Binding DisplayName}" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"
+                                   FontWeight="{Binding IsFolder, Converter={StaticResource FolderFontWeightConverter}}"/>
+                        <TextBlock Grid.Column="2" Text="{Binding DataType}" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="3" Text="{Binding Address}" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </Grid>
+                </HierarchicalDataTemplate>
+            </TreeView.Resources>
+        </TreeView>
+
+        <!-- 底部 -->
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <TextBlock x:Name="SelectedCount" VerticalAlignment="Center" Margin="0,0,15,0" Foreground="#007ACC"
+                       FontWeight="SemiBold"/>
+            <Button Content="确认导入" Command="{Binding ConfirmImportCommand}"
+                    Width="100" Height="28" FontWeight="Bold" Margin="0,0,10,0"/>
+            <Button Content="取消" IsCancel="True" Width="70" Height="28"/>
+        </StackPanel>
+    </Grid>
+</Window>

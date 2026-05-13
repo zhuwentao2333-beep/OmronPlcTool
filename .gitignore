@@ -1,0 +1,24 @@
+# Build output
+bin/
+obj/
+publish/
+
+# IDE
+.vs/
+*.user
+*.suo
+.idea/
+*.swp
+*.sln.DotSettings.user
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# NuGet packages (restored on build)
+packages/
+
+# Logs
+*.log
+import_debug.log
