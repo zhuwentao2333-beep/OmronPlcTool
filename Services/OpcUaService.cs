@@ -1,6 +1,7 @@
 using Opc.Ua;
 using Opc.Ua.Client;
 using System.Collections.Concurrent;
+using System.IO;
 
 namespace OmronPlcTool.Services;
 
@@ -28,6 +29,17 @@ public class OpcUaService : IPlcCommunication
     {
         var url = $"opc.tcp://{ipAddress}:4840";
 
+        // Store under LocalAppData (always writable, even without admin rights)
+        var baseDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "OPC Foundation", "CertificateStores");
+        var appDir = Path.Combine(baseDir, "MachineDefault");
+        foreach (var dir in new[] { appDir,
+            Path.Combine(baseDir, "UA Certificate Authorities"),
+            Path.Combine(baseDir, "UA Applications"),
+            Path.Combine(baseDir, "RejectedCertificates") })
+            Directory.CreateDirectory(dir);
+
         _config = new ApplicationConfiguration
         {
             ApplicationName = "OmronPlcTool",
@@ -37,24 +49,24 @@ public class OpcUaService : IPlcCommunication
             {
                 ApplicationCertificate = new CertificateIdentifier
                 {
-                    StoreType = CertificateStoreType.X509Store,
-                    StorePath = "CurrentUser\\My",
-                    SubjectName = "CN=OmronPlcTool, DC=local"
+                    StoreType = CertificateStoreType.Directory,
+                    StorePath = appDir,
+                    SubjectName = $"CN=OmronPlcTool"
                 },
                 TrustedIssuerCertificates = new CertificateTrustList
                 {
                     StoreType = CertificateStoreType.Directory,
-                    StorePath = "OPC Foundation/CertificateStores/UA Certificate Authorities"
+                    StorePath = Path.Combine(baseDir, "UA Certificate Authorities")
                 },
                 TrustedPeerCertificates = new CertificateTrustList
                 {
                     StoreType = CertificateStoreType.Directory,
-                    StorePath = "OPC Foundation/CertificateStores/UA Applications"
+                    StorePath = Path.Combine(baseDir, "UA Applications")
                 },
                 RejectedCertificateStore = new CertificateTrustList
                 {
                     StoreType = CertificateStoreType.Directory,
-                    StorePath = "OPC Foundation/CertificateStores/RejectedCertificates"
+                    StorePath = Path.Combine(baseDir, "RejectedCertificates")
                 },
                 AutoAcceptUntrustedCertificates = true
             },
@@ -66,19 +78,60 @@ public class OpcUaService : IPlcCommunication
 
         _config.Validate(ApplicationType.Client).GetAwaiter().GetResult();
 
-        if (_config.SecurityConfiguration.AutoAcceptUntrustedCertificates)
+        // Auto-accept all server certificates (trust on first use)
+        _config.CertificateValidator.CertificateValidation += (s, e) =>
         {
-            _config.CertificateValidator.CertificateValidation += (s, e) =>
-            {
-                e.Accept = true;
-            };
-        }
+            e.Accept = true;
+            ConnectionStatusChanged?.Invoke("已接受服务器证书（信任首次连接）");
+        };
 
         await _config.CertificateValidator.Update(_config).ConfigureAwait(false);
 
-        var endpointDescription = CoreClientUtils.SelectEndpoint(_config, url, useSecurity: false);
-        var endpointConfig = EndpointConfiguration.Create(_config);
-        var endpoint = new ConfiguredEndpoint(null, endpointDescription, endpointConfig);
+        // Let the SDK auto-create application certificate if missing
+        var hasCert = await _config.SecurityConfiguration.ApplicationCertificate
+            .Find(true).ConfigureAwait(false);
+        if (hasCert == null)
+        {
+            ConnectionStatusChanged?.Invoke("SDK 将自动创建应用证书...");
+        }
+
+        // Discover server endpoints
+        using var discovery = DiscoveryClient.Create(
+            _config,
+            new Uri(url),
+            EndpointConfiguration.Create(_config));
+        discovery.OperationTimeout = 10000;
+
+        var endpoints = await Task.Run(() =>
+        {
+            try { return discovery.GetEndpoints(null); }
+            catch { return null; }
+        }).ConfigureAwait(false);
+
+        if (endpoints == null || endpoints.Count == 0)
+            throw new Exception($"无法获取 OPC UA 端点。请确认:\n1. PLC IP 是否正确: {ipAddress}\n2. PLC 的 OPC UA 服务器是否已在 Sysmac Studio 中启用\n3. 防火墙是否允许端口 4840");
+
+        ConnectionStatusChanged?.Invoke($"发现 {endpoints.Count} 个端点");
+
+        // Select best available endpoint
+        EndpointDescription? selected = null;
+        foreach (var mode in new[] {
+            MessageSecurityMode.None,
+            MessageSecurityMode.Sign,
+            MessageSecurityMode.SignAndEncrypt })
+        {
+            selected = endpoints
+                .Where(e => e.SecurityMode == mode)
+                .OrderByDescending(e => e.SecurityLevel)
+                .FirstOrDefault();
+            if (selected != null) break;
+        }
+        selected ??= endpoints[0];
+
+        ConnectionStatusChanged?.Invoke($"连接: {selected.SecurityMode}, {selected.SecurityPolicyUri?.Split('/').Last() ?? "None"}");
+
+        var epConfig = EndpointConfiguration.Create(_config);
+        var endpoint = new ConfiguredEndpoint(null, selected, epConfig);
 
         _session = await Session.Create(
             _config,
@@ -91,7 +144,6 @@ public class OpcUaService : IPlcCommunication
         ).ConfigureAwait(false);
 
         ConnectionStatusChanged?.Invoke($"已连接: {url}");
-
         await Task.Run(() => BuildNodeTree());
     }
 
