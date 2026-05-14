@@ -41,15 +41,48 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<PlcVariable> MonitoredVariables { get; } = new();
     public ObservableCollection<HierarchicalVar> HierarchicalRoots { get; } = new();
 
-    public List<string> ProtocolNames { get; } = new() { "OPC UA (4840)", "FINS/TCP (9600)" };
+    public List<string> ProtocolNames { get; } = new() { "OPC UA (4840)", "FINS/TCP (9600)", "EtherNet/IP (44818)" };
     public List<string> PlcModelNames { get; } = new() { "欧姆龙 NJ/NX", "基恩士 KV-X" };
 
     partial void OnSelectedProtocolIndexChanged(int value) => RecreateService();
 
     partial void OnSelectedPlcModelIndexChanged(int value)
     {
-        if (value == 1) SelectedProtocolIndex = 0;
+        // Update protocol list based on PLC model
+        ProtocolNames.Clear();
+        if (value == 0) // Omron
+        {
+            ProtocolNames.Add("OPC UA (4840)");
+            ProtocolNames.Add("FINS/TCP (9600)");
+            ProtocolNames.Add("EtherNet/IP (44818)");
+        }
+        else // Keyence
+        {
+            ProtocolNames.Add("OPC UA (4840)");
+            ProtocolNames.Add("KV Ethernet (8501)");
+        }
+        SelectedProtocolIndex = 0;
         RecreateService();
+    }
+
+    /// <summary>获取当前协议的变量前缀</summary>
+    public string NodeIdPrefix
+    {
+        get
+        {
+            if (SelectedPlcModelIndex == 1) // Keyence
+                return SelectedProtocolIndex == 1 ? "kv:" : "";
+            // Omron
+            return SelectedProtocolIndex switch { 1 => "fins:", 2 => "eip:", _ => "" };
+        }
+    }
+
+    /// <summary>为导入的变量生成正确的 NodeId</summary>
+    private string MakeNodeId(string variableName)
+    {
+        var prefix = NodeIdPrefix;
+        if (string.IsNullOrEmpty(prefix)) return variableName;
+        return prefix + variableName;
     }
 
     private void RecreateService()
@@ -60,12 +93,19 @@ public partial class MainViewModel : ObservableObject
         WireEvents();
     }
 
-    private IPlcCommunication CreateService() => SelectedProtocolIndex switch
+    private IPlcCommunication CreateService()
     {
-        0 => new OpcUaService(),
-        1 => new FinsService((byte)PlcNodeAddress),
-        _ => new OpcUaService()
-    };
+        if (SelectedPlcModelIndex == 1) // Keyence
+            return SelectedProtocolIndex switch { 1 => new KeyenceEthernetService(), _ => new OpcUaService() };
+
+        // Omron
+        return SelectedProtocolIndex switch
+        {
+            1 => new FinsService((byte)PlcNodeAddress),
+            2 => new EtherNetIpService(),
+            _ => new OpcUaService()
+        };
+    }
 
     private void WireEvents()
     {
@@ -183,7 +223,7 @@ public partial class MainViewModel : ObservableObject
 
         foreach (var imp in imported)
         {
-            var nodeId = PlcVariableImport.ToNodeId(imp);
+            var nodeId = MakeNodeId(imp.Name);
             if (existing.Contains(nodeId)) continue;
             ImportCandidates.Add(new ImportCandidate
             {
@@ -230,7 +270,7 @@ public partial class MainViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(ManualVariableInput)) return;
         foreach (var imp in PlcVariableImport.FromManualInput(ManualVariableInput))
         {
-            var nodeId = $"fins:{imp.Name}";
+            var nodeId = MakeNodeId(imp.Name);
             if (MonitoredVariables.Any(v => v.NodeId == nodeId)) continue;
             MonitoredVariables.Add(new PlcVariable
             { DisplayName = imp.Name, NodeId = nodeId, DataType = imp.DataType, ValueDisplay = "(null)", Timestamp = DateTime.Now });

@@ -110,9 +110,14 @@ public class ProtocolTipShortConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
-        if (value is int idx)
-            return idx switch { 0 => "OPC UA (4840)", 1 => "FINS/TCP (9600)", _ => "" };
-        return "";
+        return value switch
+        {
+            0 => "OPC UA (4840)",
+            1 => "FINS/TCP (9600)",
+            2 => "EtherNet/IP (44818)",
+            "kv" => "KV Ethernet (8501)",
+            _ => ""
+        };
     }
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotImplementedException();
