@@ -121,11 +121,22 @@ public static class PlcVariableImport
         if (enc.GetPreamble().Length > 0)
             score += 5;
 
-        // Replacement char penalty
+        // Replacement char penalty — check ALL lines to catch Chinese text
+        // anywhere in the file (not just first 5 lines)
         int replacementCount = 0;
-        foreach (var line in lines.Take(5))
+        int nonAsciiCount = 0;
+        foreach (var line in lines)
+        {
             replacementCount += line.Count(c => c == '�');
+            nonAsciiCount += line.Count(c => c > 127);
+        }
         score -= replacementCount * 20;
+
+        // Bonus: encodings that correctly produce non-ASCII chars
+        // (Chinese/Japanese text), indicating proper code page match.
+        // Only relevant when there are no replacement chars.
+        if (replacementCount == 0 && nonAsciiCount > 50)
+            score += Math.Min(nonAsciiCount / 10, 30);
 
         return score;
     }
