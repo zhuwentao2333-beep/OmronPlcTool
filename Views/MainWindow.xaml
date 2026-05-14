@@ -256,11 +256,18 @@
         <!-- Status Bar -->
         <StatusBar Grid.Row="2" Margin="0,6,0,0">
             <StatusBarItem>
-                <TextBlock>
-                    <Run Text="PLC: "/><Run Text="{Binding SelectedPlcModelIndex, Converter={StaticResource PlcModelNameConverter}}"/>
-                    <Run Text=" | 协议: "/><Run Text="{Binding SelectedProtocolIndex, Converter={StaticResource ProtocolTipShortConverter}}"/>
-                    <Run Text=" | 支持多实例运行"/>
-                </TextBlock>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock VerticalAlignment="Center">
+                        <Run Text="PLC: "/><Run Text="{Binding SelectedPlcModelIndex, Converter={StaticResource PlcModelNameConverter}}"/>
+                        <Run Text=" | 协议: "/><Run Text="{Binding SelectedProtocolIndex, Converter={StaticResource ProtocolTipShortConverter}}"/>
+                        <Run Text=" | 支持多实例"/>
+                    </TextBlock>
+                    <TextBlock VerticalAlignment="Center" Margin="20,0,0,0">
+                        <Hyperlink Click="OpenLogFile" ToolTip="打开 OPC UA 调试日志">
+                            <Run Text="📋 OPC UA 调试日志"/>
+                        </Hyperlink>
+                    </TextBlock>
+                </StackPanel>
             </StatusBarItem>
         </StatusBar>
     </Grid>

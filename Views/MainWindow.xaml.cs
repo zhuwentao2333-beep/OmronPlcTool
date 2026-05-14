@@ -1,6 +1,8 @@
 using OmronPlcTool.Services;
 using OmronPlcTool.ViewModels;
 using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -17,6 +19,17 @@ public partial class MainWindow : Window
         InitializeComponent();
         var ver = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
         Title = $"Omron/Keyence PLC Tool v{ver?.Major}.{ver?.Minor}.{ver?.Build}";
+    }
+
+    private void OpenLogFile(object sender, RoutedEventArgs e)
+    {
+        var logPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
+            "OpcUaDebug.log");
+        if (File.Exists(logPath))
+            Process.Start(new ProcessStartInfo(logPath) { UseShellExecute = true });
+        else
+            MessageBox.Show($"日志文件尚未生成。\n连接 OPC UA 后将自动创建。\n\n路径: {logPath}", "提示");
     }
 
     private void VariablesGrid_Loaded(object sender, RoutedEventArgs e)
